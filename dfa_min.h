@@ -89,9 +89,28 @@ namespace cmp_dfa {
         // order the visited states by index
         std::sort(visit.begin(), visit.end());
         for (size_t i = 0; i < visit.size(); i++) {
-            new_states[i] = new_states[visit[i]]; // move things into place
+            cmp_state &nw_state = new_states[i];
+            nw_state = new_states[visit[i]]; // move things into place
+            //reorder unique states to match idxs
+            unique_states[i]    = nw_state.state_id;
         }
+        unique_states.erase(unique_states.begin() + visit.size(), unique_states.end());
         new_states.erase(new_states.begin() + visit.size(), new_states.end()); // erase non-visited
+        for (size_t i = 0; i < new_states.size(); i++) {
+            cmp_state &nw_state = new_states[i];
+            auto it             = std::find(unique_states.begin(), unique_states.end(), nw_state.default_to);
+            nw_state.default_to = std::distance(unique_states.begin(), it);
+
+            for (size_t t = 0; t < nw_state.transitions.size(); t++) {
+                cmp_transition &ntr = nw_state.transitions[t];
+                //
+                auto            i_it = std::find(unique_inputs.begin(), unique_inputs.end(), ntr.input);
+                ntr.input            = std::distance(unique_inputs.begin(), i_it);
+                //
+                auto t_it            = std::find(unique_states.begin(), unique_states.end(), ntr.to);
+                ntr.to               = std::distance(unique_states.begin(), t_it);
+            }
+        }
 
         // reserve enough to partition all the states and an additional error state
         std::vector<uint32_t> partition_nums(new_states.size() + 1);
@@ -107,11 +126,11 @@ namespace cmp_dfa {
         // partition the error state among the rejecting states
         partition_nums[new_states.size()] = 1;
 
+        //create a mock transition table
         std::vector<uint32_t> tt_s(new_states.size() * unique_inputs.size());
         for (size_t y = 0; y < new_states.size(); y++) {
             cmp_state &st = new_states[y];
             for (size_t x = 0; x < unique_inputs.size(); x++) {
-                // std::pair<uint32_t, uint32_t> &p  = trs[y * unique_inputs.size() + x];
                 uint32_t &ui = tt_s[y * unique_inputs.size() + x];
                 auto      it = std::find_if(st.transitions.begin(), st.transitions.end(),
                                        [x](const cmp_transition &tr) { return tr.input == x; });
