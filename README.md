@@ -47,15 +47,15 @@ For example, below we have a dfa state machine where states 0 and 2 are equivale
 ```
 The result is printed as below:
 ```
-[0]: [given:0, to:1] [given:1, to:2]
-[1]: [given:0, to:1] [given:1, to:3]
-[2]: [given:0, to:1] [given:1, to:2]
-[3]: [given:0, to:1] [given:1, to:4]
-[4]: [given:0, to:1] [given:1, to:2] -> accepting
+[0]: [given:0, goto:1] [given:1, goto:2]
+[1]: [given:0, goto:1] [given:1, goto:3]
+[2]: [given:0, goto:1] [given:1, goto:2]
+[3]: [given:0, goto:1] [given:1, goto:4]
+[4]: [given:0, goto:1] [given:1, goto:2] -> accepting
 
 
-[0]: [given:0, to:3] [given:1, to:0]
-[3]: [given:0, to:3] [given:1, to:2]
-[2]: [given:0, to:3] [given:1, to:1]
-[1]: [given:0, to:3] [given:1, to:0] -> accepting
+[0]: [given:0, goto:3] [given:1, goto:0]
+[3]: [given:0, goto:3] [given:1, goto:2]
+[2]: [given:0, goto:3] [given:1, goto:1]
+[1]: [given:0, goto:3] [given:1, goto:0] -> accepting
 ```
