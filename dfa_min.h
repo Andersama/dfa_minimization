@@ -35,13 +35,13 @@ namespace cmp_dfa {
         std::vector<uint32_t> unique_inputs;
         std::vector<uint32_t> unique_states;
         unique_states.reserve(states.size());
-        //prep work for processing reachable states
+        // prep work for processing reachable states
         std::swap(new_states[0], new_states[start_idx]); // swap to the front
         std::vector<uint32_t> visit;
         visit.reserve(states.size());
         unique_states.emplace_back(new_states[0].state_id);
         visit.emplace_back(0ULL);
-        //for every (reachable) index
+        // for every (reachable) index
         for (size_t v = 0; v < visit.size(); v++) {
             cmp_state &nst = new_states[visit[v]];
             // we are reachable if we're in this loop
@@ -55,8 +55,8 @@ namespace cmp_dfa {
                     new_states.begin(), new_states.end(),
                     [prev_default](const cmp_state &value) { return value.state_id == prev_default; });
                 uint32_t idx = std::distance(new_states.begin(), nit);
-                //already know we're unique, no need to search if idx is in visit*
-                //just need to validate we found a state
+                // already know we're unique, no need to search if idx is in visit*
+                // just need to validate we found a state
                 if (idx < new_states.size())
                     visit.emplace_back(idx);
             }
@@ -90,25 +90,25 @@ namespace cmp_dfa {
         std::sort(visit.begin(), visit.end());
         for (size_t i = 0; i < visit.size(); i++) {
             cmp_state &nw_state = new_states[i];
-            nw_state = new_states[visit[i]]; // move things into place
-            //reorder unique states to match idxs
-            unique_states[i]    = nw_state.state_id;
+            nw_state            = new_states[visit[i]]; // move things into place
+            // reorder unique states to match idxs
+            unique_states[i] = nw_state.state_id;
         }
         unique_states.erase(unique_states.begin() + visit.size(), unique_states.end());
         new_states.erase(new_states.begin() + visit.size(), new_states.end()); // erase non-visited
         for (size_t i = 0; i < new_states.size(); i++) {
             cmp_state &nw_state = new_states[i];
-            auto it             = std::find(unique_states.begin(), unique_states.end(), nw_state.default_to);
+            auto       it       = std::find(unique_states.begin(), unique_states.end(), nw_state.default_to);
             nw_state.default_to = std::distance(unique_states.begin(), it);
 
             for (size_t t = 0; t < nw_state.transitions.size(); t++) {
                 cmp_transition &ntr = nw_state.transitions[t];
                 //
-                auto            i_it = std::find(unique_inputs.begin(), unique_inputs.end(), ntr.input);
-                ntr.input            = std::distance(unique_inputs.begin(), i_it);
+                auto i_it = std::find(unique_inputs.begin(), unique_inputs.end(), ntr.input);
+                ntr.input = std::distance(unique_inputs.begin(), i_it);
                 //
-                auto t_it            = std::find(unique_states.begin(), unique_states.end(), ntr.to);
-                ntr.to               = std::distance(unique_states.begin(), t_it);
+                auto t_it = std::find(unique_states.begin(), unique_states.end(), ntr.to);
+                ntr.to    = std::distance(unique_states.begin(), t_it);
             }
         }
 
@@ -119,14 +119,14 @@ namespace cmp_dfa {
             uint32_t part_0   = (bool)(new_states[i].state_flags &
                                      ((uint8_t)cmp_flags::is_accepting | (uint8_t)cmp_flags::is_rejecting));
             partition_nums[i] = part_0;
-            //i is the new state id*, and its index into the array
+            // i is the new state id*, and its index into the array
             equiv_classes[part_0].emplace_back(i);
-            //equiv_classes[part_0].emplace_back(new_states[i].state_id);
+            // equiv_classes[part_0].emplace_back(new_states[i].state_id);
         }
         // partition the error state among the rejecting states
         partition_nums[new_states.size()] = 1;
 
-        //create a mock transition table
+        // create a mock transition table
         std::vector<uint32_t> tt_s(new_states.size() * unique_inputs.size());
         for (size_t y = 0; y < new_states.size(); y++) {
             cmp_state &st = new_states[y];
@@ -141,7 +141,17 @@ namespace cmp_dfa {
                 }
             }
         }
-        //continue until no new partitions are made (partitions = states in our new state machine)
+        // remove partitions w/ no classes
+        for (size_t i = 0; i < equiv_classes.size();) {
+            if (equiv_classes[i].size()) {
+                i++;
+                continue;
+            } else {
+                equiv_classes.erase(equiv_classes.begin() + i);
+                continue;
+            }
+        }
+        // continue until no new partitions are made (partitions = states in our new state machine)
         bool changed = true;
         while (changed) {
             changed = false;
@@ -155,8 +165,8 @@ namespace cmp_dfa {
                 size_t target_partition = equiv_classes.size();
                 // check if the other states belongs in same partition
                 for (size_t j = 1; j < equiv_classes[i].size();) {
-                    uint32_t   test_state = equiv_classes[i][j];
-                    uint32_t   test_idx   = test_state * unique_inputs.size();
+                    uint32_t test_state = equiv_classes[i][j];
+                    uint32_t test_idx   = test_state * unique_inputs.size();
 
                     bool next = 1;
                     for (size_t t = 0; t < unique_inputs.size(); t++) {
@@ -172,6 +182,7 @@ namespace cmp_dfa {
                             equiv_classes[i].erase(equiv_classes[i].begin() + j);
                             equiv_classes[target_partition].emplace_back(test_state);
                             next = 0;
+                            break;
                         }
                     }
                     j += next;
@@ -181,16 +192,18 @@ namespace cmp_dfa {
         // edit the states
         for (size_t i = 0; i < new_states.size(); i++) {
             cmp_state &nw_state = new_states[i];
-            //unmark equiv_class
+            // unmark equiv_class
             nw_state.state_flags &= ~((uint8_t)cmp_flags::is_equivalence_class);
             for (size_t e = 0; e < equiv_classes.size(); e++) {
                 if (i == equiv_classes[e][0]) {
-                    //mark equiv_class
+                    // mark equiv_class
                     nw_state.state_flags |= (uint8_t)cmp_flags::is_equivalence_class;
                     break;
                 }
             }
-            nw_state.state_id   = partition_nums[nw_state.state_id];
+            //auto id_it = std::find(unique_states.)
+            //nw_state.state_id   = partition_nums[nw_state.state_id];
+            nw_state.state_id   = partition_nums[i];
             nw_state.default_to = partition_nums[nw_state.default_to];
             for (size_t t = 0; t < nw_state.transitions.size(); t++) {
                 nw_state.transitions[t].to = partition_nums[nw_state.transitions[t].to];
